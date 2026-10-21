@@ -2,3 +2,5 @@
 /*/**/apache2-foreground  linguist-generated
 /*/**/docker-php-*        linguist-generated
 /Dockerfile*.template     linguist-language=Dockerfile
+/.gitattributes text eol=lf
+/7.4/buster/apache/* text eol=lf

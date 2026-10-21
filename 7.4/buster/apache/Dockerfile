@@ -26,10 +26,16 @@ ENV PHPIZE_DEPS \
 		libc-dev \
 		make \
 		pkg-config \
+		patch \
 		re2c
 
 # persistent / runtime deps
 RUN set -eux; \
+	sed -i \
+		-e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+		-e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+		/etc/apt/sources.list; \
+	echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		$PHPIZE_DEPS \
@@ -118,8 +124,10 @@ ENV PHP_LDFLAGS="-Wl,-O1 -pie"
 
 ENV GPG_KEYS 42670A7FE4D0441C8E4632349E4FDC074A4EF02D 5A52880781F755608BF815FC910DEB46F53EA312
 
-ENV PHP_VERSION 7.4.33
-ENV PHP_URL="https://www.php.net/distributions/php-7.4.33.tar.xz" PHP_ASC_URL="https://www.php.net/distributions/php-7.4.33.tar.xz.asc"
+# Internal version for the PHP 7.4.33 source with the security backport below.
+ENV PHP_VERSION 7.4.34
+ENV PHP_SOURCE_VERSION 7.4.33
+ENV PHP_URL="https://www.php.net/distributions/php-$PHP_SOURCE_VERSION.tar.xz" PHP_ASC_URL="https://www.php.net/distributions/php-$PHP_SOURCE_VERSION.tar.xz.asc"
 ENV PHP_SHA256="924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927"
 
 RUN set -eux; \
@@ -154,6 +162,8 @@ RUN set -eux; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
 
 COPY docker-php-source /usr/local/bin/
+COPY php-7.4-cve-2026-109618-109619.patch /tmp/php-7.4-cve-2026-109618-109619.patch
+COPY php-7.4.34-version.patch /tmp/php-7.4.34-version.patch
 
 RUN set -eux; \
 	\
@@ -179,6 +189,8 @@ RUN set -eux; \
 	; \
 	docker-php-source extract; \
 	cd /usr/src/php; \
+	patch -p1 < /tmp/php-7.4-cve-2026-109618-109619.patch; \
+	rm /tmp/php-7.4-cve-2026-109618-109619.patch; \
 	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
 	debMultiarch="$(dpkg-architecture --query DEB_BUILD_MULTIARCH)"; \
 # https://bugs.php.net/bug.php?id=74125
@@ -234,6 +246,8 @@ RUN set -eux; \
 		\
 		--with-apxs2 \
 	; \
+	patch -p1 < /tmp/php-7.4.34-version.patch; \
+	rm /tmp/php-7.4.34-version.patch; \
 	make -j "$(nproc)"; \
 	find -type f -name '*.a' -delete; \
 	make install; \
